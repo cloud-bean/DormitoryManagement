@@ -11,6 +11,9 @@ const {
   BuildingController
 } = require("../controller")
 const utils = require("../utils")
+const { readXLSXFiles } = require('../utils/xlsx')
+const path = require('path')
+const fs = require('fs')
 
 const router = new Router()
 
@@ -191,6 +194,79 @@ router.get("/getStudentInfoByIdOrAccount", async ctx => {
   }
   const userInfo = await UserController.getStudentInfo(userId)
   ctx.body = new ResBody({ data: userInfo })
+})
+
+
+// change raw data to stduent list
+const parseRawJson = function (data_arr) {
+  let students = []
+  for (let i = 1; i < data_arr.length; i++) {
+    const data = data_arr[i]
+    const student = {
+      account: data[0],
+      password: bcypt.hash('123456'),
+      role: 'student',
+      name: data[0],
+      sex: data[1],
+      phone: data[2],
+      roomId: data[3],
+      facultyId: 1,
+      majorId: 1,
+    }
+    students.push(student)
+  }
+  return students
+}
+
+
+router.post("/addStudentsWithFiles", async ctx => {
+  // with utils read xls files.
+  const { filename } = ctx.request.body
+
+  if (!filename) {
+    throw new Error("400-请上传文件")
+  }
+
+  const filePath = path.join(
+    __dirname,
+    "../uploads/",
+    filename
+  )
+
+  console.log('filePath :>> ', filePath);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error("400-文件不存在")
+  }
+
+  const result = readXLSXFiles(filePath)
+  console.log('result :>> ', result);
+  if (result.msg !== 'success') {
+    throw new Error("400-文件格式错误:" + result.msg)
+  }
+
+  const students = parseRawJson(result.data)
+  console.log('students :>> ', students);
+
+  const accounts = students.map((student) => student.account)
+  console.log('accounts :>> ', accounts);
+  const exist_students = await User.findAll({
+    where: {
+      account: {
+        [Op.in]: accounts
+      }
+    },
+    attributes: ['account'],
+    raw: true
+  })
+
+  console.log('exist_students :>> ', exist_students);
+  if (exist_students.length > 0) {
+    throw new Error(`400-部分账号已存在: ${exist_students.map((student) => student.account).join(',')}`)
+  }
+
+  const res = await User.bulkCreate(students)
+  ctx.body = new ResBody({ data: res.length })
 })
 
 module.exports = router.routes()

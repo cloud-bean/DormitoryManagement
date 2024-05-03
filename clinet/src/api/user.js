@@ -109,3 +109,11 @@ export function getStudentInfoByIdOrAccount({ type = 'id', value }) {
     params: { type, value }
   })
 }
+
+export function addStudentsWithFiles(filename) {
+  return request({
+    url: '/user/addStudentsWithFiles',
+    method: 'post',
+    data: { filename }
+  })
+}

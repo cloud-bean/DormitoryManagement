@@ -1,6 +1,27 @@
 <template>
   <div id="UserInfo" class="page-wrapper">
     <!-- 选择器 -->
+
+    <h1 class="main-title">导入学生</h1>
+    <div class="wrapper main-card">
+      <el-upload
+        style="width: 500px;"
+        :action="uploadUrl"
+        :on-success="handleSuccess"
+        :on-error="handleError"
+        ref="upload"
+        name="file"
+        :limit="1"
+        :auto-upload="false"
+      >
+        <el-button slot="trigger" type="primary">选择文件</el-button>
+        <el-button type="success" @click="submitUpload">上传到服务器</el-button>
+        <div class="el-upload__tip" slot="tip">
+          只能上传csv/xls/xlsx文件，且不超过1MB
+        </div>
+      </el-upload>
+    </div>
+
     <h1 class="main-title">选择学生</h1>
     <div class="wrapper">
       <el-tabs type="border-card">
@@ -108,7 +129,7 @@ import StudentSearcher from './components/StudentSearcher'
 import PanelGroup from './components/PanelGroup'
 import UserInfoEditModal from './components/UserInfoEditModal.vue'
 
-import { getStudentInfoByIdOrAccount } from '@/api/user'
+import { getStudentInfoByIdOrAccount, addStudentsWithFiles } from '@/api/user'
 export default {
   name: 'UserInfo',
   components: {
@@ -127,7 +148,9 @@ export default {
       },
       searchContent: '',
       studentInfo: {},
-      editModalVisible: false
+      editModalVisible: false,
+      uploadUrl: 'http://localhost:8080/api/upload', // 你的Koa服务器上的上传接口路径
+      fileList: []
     }
   },
   methods: {
@@ -135,7 +158,31 @@ export default {
       getStudentInfoByIdOrAccount({ type, value }).then(res => {
         this.studentInfo = res.data
       })
+    },
+    async submitUpload() {
+      console.log('this.fileList :>> ', this.fileList)
+      // 调用Element UI的上传组件上传文件
+      const res = await this.$refs.upload.submit()
+      console.log('res :>> ', res)
+    },
+    async handleSuccess(response, file, fileList) {
+      // 文件上传成功的处理逻辑
+      this.fileList = fileList // 更新已上传的文件列表
+      console.log('response, file :>> ', response, file)
+      const upFileName = response.filename
+      console.log('upFileName :>> ', upFileName)
+
+      // /api/addStudentsWithFiles
+
+      const res = await addStudentsWithFiles(upFileName)
+      console.log('res :>> ', res);
+
+    },
+    handleError(error, file) {
+      // 文件上传失败的处理逻辑
+      this.$message.error('文件上传失败')
     }
+    // upload file
   },
   mounted() {
     if (this.$route.query.userId) {
